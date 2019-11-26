@@ -1,0 +1,117 @@
+<?xml version="1.0" encoding="UTF-8" ?>
+<!DOCTYPE mapper
+        PUBLIC "-//mybatis.org//DTD Mapper 3.0//EN"
+        "http://mybatis.org/dtd/mybatis-3-mapper.dtd">
+<mapper namespace="org.competition.mapper.InformationMapper">
+
+    <resultMap id="BaseResultMap" type="org.competition.bean.Information">
+        <id column="id" property="id"/>
+        <result column="company" property="company"/>
+        <result column="source" property="source"/>
+        <result column="product" property="product"/>
+        <result column="alarm" property="alarm"/>
+        <result column="title" property="title"/>
+        <result column="mdContent" property="mdContent"/>
+        <result column="htmlContent" property="htmlContent"/>
+        <result column="summary" property="summary"/>
+        <result column="cid" property="cid"/>
+        <result column="uid" property="uid"/>
+        <result column="publishDate" property="publishDate"/>
+        <result column="editTime" property="editTime"/>
+        <result column="state" property="state"/>
+        <result column="pageView" property="pageView"/>
+        <collection property="tags" ofType="org.competition.bean.Tags" column="tagName">
+            <id property="id" column="tid"/>
+            <result property="tagName" column="tagName"/>
+        </collection>
+    </resultMap>
+
+    <insert id="addNewInformation" parameterType="org.competition.bean.Information" useGeneratedKeys="true" keyProperty="id">
+        INSERT INTO information SET company=#{company},source=#{source},product=#{product},
+        alarm=#{alarm},title=#{title},mdContent=#{mdContent},htmlContent=#{htmlContent},
+        summary=#{summary},cid=#{cid},uid=#{uid},publishDate=#{publishDate},
+       editTime=#{editTime}, state=#{state},pageView=#{pageView}
+    </insert>
+    <update id="pvIncrement" parameterType="Long">
+        UPDATE information set pageView=pageView+1 WHERE id=#{iid}
+    </update>
+    <update id="updateInformation" parameterType="org.competition.bean.Information">
+        UPDATE information SET
+        title=#{title},mdContent=#{mdContent},htmlContent=#{htmlContent},summary=#{summary},cid=#{cid},editTime=#{editTime}
+        <if test="state==1">
+            ,state=1
+        </if>
+        <if test="publishDate!=null">
+            ,publishDate=#{publishDate}
+        </if>
+        WHERE id=#{id}
+    </update>
+    <select id="getInformationByState" resultType="org.competition.bean.Information">
+        SELECT a.*,u.`nickname`,c.`cateName` FROM information a,user
+        u,category c WHERE a.`cid`=c.`id` AND a.`uid`=u.`id`
+        <if test="state!=-2">
+            and a.uid=#{uid}
+        </if>
+        <if test="state!=-1 and state!=-2">
+            and a.state=#{state}
+        </if>
+        <if test="state==-2">
+            and a.state=1
+        </if>
+        <if test="keywords!=null">
+            AND title LIKE concat('%',#{keywords},'%')
+        </if>
+        ORDER BY a.editTime DESC limit #{start},#{count};
+    </select>
+    <select id="getInformationByStateByAdmin" resultType="org.competition.bean.Information">
+        SELECT a.id,a.`title`,a.`editTime`,a.`pageView`,a.`state`,u.`nickname`,c.`cateName`,a.uid FROM information a,user
+        u,category c WHERE a.`cid`=c.`id` AND a.`uid`=u.`id` and a.state=1
+        <if test="keywords!=null">
+            AND title LIKE concat('%',#{keywords},'%')
+        </if>
+        ORDER BY a.editTime DESC limit #{start},#{count};
+    </select>
+    <select id="getInformationCountByState" resultType="int">
+        SELECT count(*) FROM information
+        <where>
+            <if test="state!=-1">
+                AND state=#{state}
+            </if>
+            <if test="uid!=null">
+                AND uid=#{uid}
+            </if>
+            <if test="keywords!=null">
+                AND title LIKE concat('%',#{keywords},'%')
+            </if>
+        </where>
+    </select>
+    <update id="updateInformationState">
+        UPDATE information SET state=#{state} WHERE id IN
+        <foreach collection="aids" item="iid" separator="," open="(" close=")">
+            #{iid}
+        </foreach>
+    </update>
+
+    <delete id="deleteInformationById">
+        DELETE FROM information WHERE id IN
+        <foreach collection="aids" item="iid" open="(" close=")" separator=",">
+            #{iid}
+        </foreach>
+    </delete>
+
+    <select id="getInformationById" parameterType="Long" resultType="com.alibaba.fastjson.JSONObject">
+        SELECT a.*,u.`nickname`,c.`cateName` FROM information a  LEFT JOIN user u ON a.`uid`=u.`id` LEFT JOIN category c ON a.`cid`=c.`id` WHERE a.id=#{iid}
+    </select>
+
+
+    <insert id="pvStatisticsPerDay">
+        INSERT INTO pv(countDate,pv,uid) SELECT CURRENT_DATE(),totalPv-pv,t.`uid` FROM pvview p,totalpvview t WHERE p.`uid`=t.`uid`
+    </insert>
+
+    <select id="getCategories" resultType="String" parameterType="long">
+        SELECT countDate from pv WHERE uid=#{uid} ORDER by countDate limit 7
+    </select>
+    <select parameterType="long" id="getDataStatistics" resultType="int">
+        SELECT pv from pv WHERE uid=#{uid} ORDER by countDate limit 7
+    </select>
+</mapper>
